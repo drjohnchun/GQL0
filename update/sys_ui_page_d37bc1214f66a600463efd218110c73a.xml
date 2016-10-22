@@ -11,7 +11,7 @@
 
 var app = angular.module('gqlpad', []);
 
-app.controller('EditorCtrl', ['$scope', '$http', '$sce', function($scope, $http, $sce) {
+app.controller('EditorCtrl', ['$scope', '$http', function($scope, $http) {
 
 	$scope.gql = 'SELECT  -- sample GQL statement\r  number [Number]\r  , short_description [Title]\r  , dv_state [State]\r  , caller_id.email [Caller Email]\r  , caller_id.manager.email [Manager Email]\r  , dv_cmdb_ci [CI]\r  , cmdb_ci\rFROM incident\rWHERE active=true^priority<2^EQ^ORDERBYpriority^ORDERBYDESCnumber\rLIMIT 5,10';
 	
@@ -27,12 +27,38 @@ app.controller('EditorCtrl', ['$scope', '$http', '$sce', function($scope, $http,
 		var timer = Date.now();
 		$scope.timer = '';
 		$scope.result = '';
-		$http.get('/x_64935_gql_proc.do', {params: { gql:$scope.gql, format:$scope.format, now:Date.now() }}).success(function(data) {
-			$scope.result = $sce.trustAsHtml(typeof data == 'object' ? JSON.stringify(data) : data.replace(/\r\n|\r|\n/g,'<br/>'));
-			$scope.timer = $sce.trustAsHtml('took ' + ((Date.now() - timer) / 1e3) + ' seconds');
+
+		$http.get('/x_64935_gql_proc.do', {params: { gql:$scope.gql, format:$scope.format.name, now:Date.now() }}).then(function(response) {
+			var format = $scope.format.name, data = response.data;
+			var result = angular.element(document.getElementById('result'));
+			var rowCount = 0, colCount = 0;
+
+			if (format == 'CSV') {
+				rowCount = data.split(/\r\n/).length - 1;  // exclude header
+				colCount = data.split(/\r\n/)[0].split(/,/).length;
+				result.html(data.replace(/\r\n/g, '<br/>'));
+			}
+			else if (format == 'HTML') {
+				result.html(data);
+				var rows = result[0].querySelectorAll('tbody tr');
+				var header = result[0].querySelector('thead tr');
+				rowCount = rows.length; colCount = header.cells.length;
+				angular.element(rows).on('click', function() {
+					var number = this.firstElementChild.textContent;
+					window.open('/incident.do?sysparm_query=number=' + number);
+				});
+			}
+			else if (typeof data == 'object') {
+				rowCount = data.records.length; colCount = data.fields.length;
+				result.text(JSON.stringify(data));
+			}
+			else result.text(data);
+
+			$scope.timer = Math.max(rowCount, 0) + ' rows x ' + Math.max(colCount, 0) + ' columns (' + ((Date.now() - timer) / 1e3) + ' seconds)';
 		});
 	}
-}]);]]></client_script>
+}]);
+]]></client_script>
         <description/>
         <direct>true</direct>
         <endpoint>x_64935_gql_pad.do</endpoint>
@@ -49,16 +75,16 @@ footer { color:gray; font-size:9pt; text-align:center; position:fixed; bottom:0;
 <div ng-app="gqlpad">
 	
 <div ng-controller="EditorCtrl">
-	<textarea ng-model="gql" rows="20" cols="120" style="font:9pt Consolas;"></textarea>
+	<textarea ng-model="gql" rows="20" style="font:9pt Consolas; width:100%;"></textarea>
 	<br/>
 	<label>Output format:
 		<select ng-model="format" ng-options="format.name for format in formats"></select>
 	</label> 
 	<button ng-click="run()" style="width:80px;" accesskey="r"><u>R</u>un</button>
-	<span ng-bind-html="timer" style="color:gray; font:9pt Consolas; margin-left:30px;" />
+	<span ng-bind="timer" style="color:gray; font:9pt Consolas; margin-left:30px;" />
 	<br/>
 	<div ng-bind-html="status" style="font:9pt Consolas; background-color:lightyellow;" />
-	<div ng-bind-html="result" style="font:9pt Consolas;" />
+	<div ng-bind-html="result" id="result" style="font:9pt Consolas;" />
 </div>
 </div>
 <footer>MIT License Copyright © 2016 John.Chun @snowaid.com</footer>
@@ -70,7 +96,7 @@ footer { color:gray; font-size:9pt; text-align:center; position:fixed; bottom:0;
         <sys_created_on>2016-10-18 13:52:56</sys_created_on>
         <sys_customer_update>true</sys_customer_update>
         <sys_id>d37bc1214f66a600463efd218110c73a</sys_id>
-        <sys_mod_count>97</sys_mod_count>
+        <sys_mod_count>208</sys_mod_count>
         <sys_name>pad</sys_name>
         <sys_package display_value="gql" source="x_64935_gql">a4d8ddd54f62a600463efd218110c731</sys_package>
         <sys_policy/>
@@ -78,6 +104,6 @@ footer { color:gray; font-size:9pt; text-align:center; position:fixed; bottom:0;
         <sys_scope display_value="gql">a4d8ddd54f62a600463efd218110c731</sys_scope>
         <sys_update_name>sys_ui_page_d37bc1214f66a600463efd218110c73a</sys_update_name>
         <sys_updated_by>john.chun</sys_updated_by>
-        <sys_updated_on>2016-10-21 20:23:34</sys_updated_on>
+        <sys_updated_on>2016-10-22 21:58:32</sys_updated_on>
     </sys_ui_page>
 </record_update>
